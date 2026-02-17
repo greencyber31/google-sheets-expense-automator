@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Expenses Tracker</title>
+    <!-- PWA / Home Screen Settings -->
+    <meta name="theme-color" content="#28a745">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Expenses">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Icon (Green Box with Peso Sign) -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icon.svg') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon.svg') }}">
+
+    <!-- Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: sans-serif;
+            background-color: #f4f4f9;
+            font-size: 16px;
+            /* Ensure base size is good */
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            /* iOS Safe Area Support */
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            /* Increased gap */
+            margin-bottom: 25px;
+        }
+
+        input:not([type="checkbox"]),
+        button,
+        select {
+            /* Added select just in case */
+            padding: 14px;
+            /* Bigger padding */
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 1.1rem;
+            /* Bigger font */
+            /* iOS Safari Resets */
+            -webkit-appearance: none;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        input[type="checkbox"] {
+            /* Ensure checkboxes stay visible on iOS */
+            -webkit-appearance: checkbox;
+            appearance: checkbox;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        /* Category Buttons */
+        .category-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .cat-btn {
+            flex: 1;
+            min-width: 90px;
+            /* Slightly wider */
+            padding: 12px 5px;
+            /* Bigger touch target */
+            border: 1px solid #ddd;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 1rem;
+            color: #495057;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .cat-btn:hover {
+            background-color: #e2e6ea;
+        }
+
+        .cat-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+            font-weight: bold;
+        }
+
+        button[type="submit"] {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            /* Make it pop */
+        }
+
+        button[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        button.cancel-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: none;
+            margin-top: 5px;
+        }
+
+        .total {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-top: 20px;
+            border-top: 2px solid #eee;
+            padding-top: 10px;
+        }
+
+        .date-header {
+            background-color: #e9ecef;
+            padding: 10px 14px;
+            margin-top: 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .date-header:hover {
+            background-color: #dfe3e6;
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.2s;
+            margin-right: 8px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .expense-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            /* More padding */
+            border-bottom: 1px solid #eee;
+            background: #fff;
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-info {
+            font-size: 0.85rem;
+            /* Slightly readable */
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .tag {
+            font-size: 0.85rem;
+            background: #e2e2e2;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+
+        .item-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 10px;
+            /* Space out buttons */
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.4rem;
+            /* Bigger icons */
+            padding: 5px 8px;
+            /* Touch target */
+            color: #666;
+        }
+
+        .delete-btn {
+            color: #dc3545;
+        }
+
+        .actions {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .action-group {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .actions a,
+        .actions label {
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #007bff;
+        }
+
+        .actions a:hover,
+        .actions label:hover {
+            text-decoration: underline;
+        }
+
+        /* Button Bar Styles */
+        .btn-bar {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .bar-btn {
+            flex: 1;
+            padding: 12px 5px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .btn-save {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-load {
+            background-color: #f8f9fa;
+            color: #495057;
+            border-color: #ddd;
+        }
+
+        .btn-more {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .bar-btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .input-row {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+            .input-row {
+                flex-direction: column;
+            }
+
+            .input-row input {
+                flex: none !important;
+                width: 100%;
+            }
+
+            .item-left {
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 2px;
+            }
+        }
+
+        /* Hamburger Menu Icon */
+        .menu-bar {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            margin: 4px 0;
+            transition: 0.4s;
+        }
+
+        .header-bar {
+            display: flex;
+            align-items: center;
+            background-color: #28a745;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .hamburger-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 1001;
+            margin-right: 10px;
+        }
+
+        .header-title {
+            flex-grow: 1;
+            text-align: center;
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-right: 35px;
+            /* Offset for hamburger button to keep center */
+        }
+
+        /* Side Navigation */
+        .sidenav {
+            height: 100%;
+            width: 0;
+            position: fixed;
+            z-index: 2000;
+            top: 0;
+            left: 0;
+            background-color: #fff;
+            overflow-x: hidden;
+            transition: 0.3s;
+            padding-top: 60px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .sidenav a {
+            padding: 15px 32px;
+            text-decoration: none;
+            font-size: 1.1rem;
+            color: #333;
+            display: block;
+            transition: 0.3s;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidenav a:hover {
+            background-color: #f1f1f1;
+            color: #28a745;
+        }
+
+        .sidenav .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 25px;
+            font-size: 30px;
+            margin-left: 50px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .nav-overlay {
+            display: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .view-section {
+            display: none;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        /* Savings Specific Styling */
+        .savings-progress {
+            margin-top: 10px;
+            background: #eee;
+            height: 37.5px;
+            border-radius: 18.75px;
+            overflow: hidden;
+        }
+
+        .savings-bar {
+            background: #28a745;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Floating Add Goal Button */
+        .add-goal-fab {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            font-size: 32px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+
+        .add-goal-fab:hover {
+            background-color: #218838;
+            transform: scale(1.1);
+        }
+
+        .add-goal-fab:active {
+            transform: scale(0.9);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-30px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #28a745;
+        }
+
+        .close-modal {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        /* Savings Goal Bar Styling */
+        .savings-bar-item {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .savings-bar-item:hover {
+            background-color: #f8f9fa;
+            border-color: #28a745;
+            transform: translateX(5px);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="navOverlay" class="nav-overlay" onclick="closeNav()"></div>
+
+    <div id="mySidenav" class="sidenav">
+        <span class="close-btn" onclick="closeNav()">&times;</span>
+        <a href="javascript:void(0)" onclick="showView('expenses')">Expenses Tracker</a>
+        <a href="javascript:void(0)" onclick="showView('savings')">Savings Tracker</a>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="header-bar">
+                <button class="hamburger-btn" onclick="openNav()" aria-label="Menu">
+                    <div class="menu-bar"></div>
+                    <div class="menu-bar"></div>
+                    <div class="menu-bar"></div>
+                </button>
+                <h1 class="header-title" id="mainTitle">Expenses Tracker</h1>
+            </div>
+
+            <!-- Expenses View -->
+            <div id="expensesView" class="view-section active">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="food">Food</button>
+                    <button class="tab-btn" data-tab="nonFood">General</button>
+                </div>
+
+                <h2 id="pageTitle">Daily Food Expenses</h2>
+
+                <form id="expenseForm">
+                    <input type="hidden" id="editId">
+                    <input type="hidden" id="category" value="">
+
+                    <div class="input-row">
+                        <input type="text" id="itemName" placeholder="Item Name" maxlength="50" required>
+                        <input type="number" id="amount" step="0.01" max="99999" placeholder="Cost (₱)" required>
+                        <input type="datetime-local" id="dateInput" style="color: #666;">
+                    </div>
+                    <small style="color: #888; font-size: 0.8rem; margin-top: -10px; margin-bottom: 5px;">Leave date
+                        blank
+                        to
+                        use current time</small>
+
+                    <div id="categoryContainer" class="category-container" style="margin-top: 5px;">
+                        <!-- Buttons injected by JS -->
+                    </div>
+
+                    <button type="submit" id="submitBtn">Add Expense</button>
+                    <button type="button" id="cancelEditBtn" class="cancel-btn">Cancel Edit</button>
+                </form>
+
+                <div id="list"></div>
+
+                <div id="listControls"
+                    style="display: flex; align-items: center; gap: 10px; margin-top: 15px; margin-bottom: 10px; padding: 8px 10px; background: #e9ecef; border-radius: 4px; display: none;">
+                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleAllEntries(this.checked)"
+                        style="width: 17px; height: 17px; cursor: pointer;">
+                    <label for="selectAllCheckbox"
+                        style="font-weight: bold; color: #495057; cursor: pointer; font-size: 0.8rem;">Select
+                        All</label>
+                </div>
+
+                <div class="total-section" style="margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">
+                    <div id="totalDisplay" style="font-size: 1.5rem; color: #666;">Subtotal: ₱0.00</div>
+                    <div style="border-top: 1px dashed #ddd; margin: 10px 0;"></div>
+                    <div id="grandTotalDisplay"
+                        style="font-size: 1.6rem; font-weight: bold; color: #333; margin-top: 5px;">
+                        Grand Total: ₱0.00</div>
+                </div>
+
+                <div class="actions">
+                    <div class="btn-bar">
+                        <a id="saveBtn" class="bar-btn btn-save">💾 Save</a>
+                        <label for="fileInput" class="bar-btn btn-load">📂 Load</label>
+                        <a id="moreOptionsBtn" onclick="toggleMoreOptions()" class="bar-btn btn-more">⚙️ More</a>
+                    </div>
+                    <!-- Hidden inputs -->
+                    <a id="downloadBtn" style="display:none;">Download CSV</a>
+                    <input type="file" id="fileInput" accept=".csv" style="display: none;">
+
+                    <div id="moreOptionsGroup" class="action-group"
+                        style="display: none; border-top: 1px dashed #eee; padding-top: 15px; margin-top: 15px;">
+                        <a onclick="showInstallInfo()"
+                            style="color: #28a745; cursor: pointer; font-weight: bold; display: block; margin-bottom: 10px;">⚡
+                            Install as Mobile App</a>
+                        <a id="clearBtn" style="color: #dc3545; cursor: pointer; display: block;">🗑️ Clear Current
+                            List</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Savings View -->
+            <div id="savingsView" class="view-section">
+                <div id="savingsList"></div>
+                <button class="add-goal-fab" onclick="openSavingsModal()" aria-label="Add New Goal">＋</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Modal -->
+    <div id="savingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="savingsModalTitle">New Savings Goal</h2>
+                <span class="close-modal" onclick="closeSavingsModal()">&times;</span>
+            </div>
+            <form id="savingsForm">
+                <input type="hidden" id="savingsEditId">
+                <div class="input-row">
+                    <label style="font-weight: bold; color: #555;">Savings Name</label>
+                    <input type="text" id="savingsName" placeholder="e.g., Brand New Phone" required>
+
+                    <label style="font-weight: bold; color: #555;">Target Amount (Optional)</label>
+                    <input type="number" id="savingsTarget" step="0.01" placeholder="₱ 0.00">
+
+                    <label style="font-weight: bold; color: #555;">Description (Optional)</label>
+                    <textarea id="savingsDescription" placeholder="What are you saving for?"
+                        style="width: 100%; border: 1px solid #ccc; padding: 10px; border-radius: 4px; box-sizing: border-box; margin-bottom: 5px; font-family: inherit; resize: vertical; min-height: 60px;"></textarea>
+
+                    <label style="font-weight: bold; color: #555;">Target Date (Optional)</label>
+                    <input type="date" id="savingsDate">
+                </div>
+                <button type="submit" id="savingsSubmitBtn" style="margin-top: 10px;">Save Goal</button>
+                <button type="button" onclick="closeSavingsModal()" class="cancel-btn"
+                    style="display: block; width: 100%; margin-top: 10px; background: #6c757d;">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Savings Detail Modal -->
+    <div id="savingsDetailModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 id="detailGoalName">Goal Details</h2>
+                <span class="close-modal" onclick="closeSavingsDetail()">&times;</span>
+            </div>
+            <div id="detailContent" style="margin-bottom: 20px; font-size: 1.1rem; line-height: 1.6; color: #444;">
+                <div
+                    style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div id="detailGoalAmountContainer">
+                        <span
+                            style="display: block; font-size: 0.8rem; color: #888; font-weight: bold; text-transform: uppercase;">Goal
+                            Amount</span>
+                        <span id="detailGoalAmount" style="font-size: 1.2rem; font-weight: bold; color: #333;"></span>
+                    </div>
+                    <div id="detailGoalDateContainer" style="text-align: right;">
+                        <span
+                            style="display: block; font-size: 0.8rem; color: #888; font-weight: bold; text-transform: uppercase;">Target
+                            Date</span>
+                        <span id="detailGoalDate" style="font-size: 1rem; font-weight: bold; color: #333;"></span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <span
+                        style="display: block; font-size: 0.8rem; color: #888; font-weight: bold; text-transform: uppercase; margin-bottom: 5px;">Description</span>
+                    <textarea id="detailDescription" placeholder="Add a description..."
+                        style="width: 100%; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 50px; background: #fff; outline: none; color: #555;"></textarea>
+                </div>
+
+                <div style="background: #fff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px;">
+                    <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed #e2e8f0;">
+                        <span
+                            style="display: block; font-size: 0.8rem; color: #888; font-weight: bold; text-transform: uppercase;">Total
+                            Saved So Far</span>
+                        <span id="detailCurrentSaved"
+                            style="font-size: 1.1rem; font-weight: bold; color: #28a745;">₱0.00</span>
+                    </div>
+                    <label
+                        style="display: block; font-size: 0.85rem; color: #475569; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">Add
+                        to Real-Life Savings:</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="detailSavedInput" step="0.01" placeholder="₱ 0.00 (Amount to Add)"
+                            style="flex: 1; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 1rem; outline: none;">
+                        <button id="detailSaveProgressBtn"
+                            style="background: #28a745; color: white; border: none; padding: 0 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">Add</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <span
+                        style="display: block; font-size: 0.8rem; color: #888; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">Savings
+                        History</span>
+                    <div id="detailHistoryList"
+                        style="max-height: 150px; overflow-y: auto; background: #fbfbfb; border: 1px solid #eee; border-radius: 8px; padding: 5px;">
+                        <!-- History items will appear here -->
+                    </div>
+                </div>
+            </div>
+            <div class="item-actions"
+                style="justify-content: flex-end; border-top: 1px solid #eee; padding-top: 15px; gap: 12px; align-items: center;">
+                <div id="detailSettingsMenu" style="display: none; gap: 12px; animation: slideInRight 0.2s ease;">
+                    <button class="action-btn" id="detailEditBtn"
+                        style="font-size: 0.95rem; background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0;">✎</button>
+                    <button class="action-btn delete-btn" id="detailDeleteBtn"
+                        style="font-size: 1.1rem; background: #fff1f2; color: #e11d48; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #fecdd3;">×</button>
+                </div>
+                <button class="action-btn" onclick="toggleSavingsSettings()"
+                    style="font-size: 1.2rem; background: #f8f9fa; color: #666; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; transition: all 0.2s;"
+                    aria-label="Settings">⚙</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Install Modal -->
+    <div id="installModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+        <div class="card" style="max-width:400px; width:100%; position:relative;">
+            <h2 style="color:#28a745;">Install App</h2>
+            <p>To use this as a standalone app (no browser bar):</p>
+            <div style="text-align:left; margin-bottom:20px;">
+                <p><strong>📱 Android (Chrome):</strong><br>1. Tap the 3 dots <strong>(⋮)</strong>.<br>2.
+                    Select
+                    <strong>'Add to Home Screen'</strong>.
+                </p>
+                <p><strong>🍎 iPhone (Safari):</strong><br>1. Tap the Share icon <strong>(↑)</strong>.<br>2.
+                    Select
+                    <strong>'Add to Home Screen'</strong>.
+                </p>
+            </div>
+            <button onclick="hideInstallInfo()"
+                style="width:100%; background:#6c757d; color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; margin-bottom:10px;">Got
+                it!</button>
+            <button onclick="resetCache()"
+                style="width:100%; background:none; color:#dc3545; border:1px solid #dc3545; padding:8px; border-radius:6px; cursor:pointer; font-size:0.8rem;">Reset
+                App Cache (Fix Freezing)</button>
+        </div>
+    </div>
+    <div style="text-align: center; margin-top: 15px; font-size: 0.75rem; color: #999;">
+        Created by Carlos Rock Z. Diamante<br>
+        v1.9 (Updated: Jan 15, 11:28 AM)
+    </div>
+    </div>
+
+    <script>
+        // --- Error Steering ---
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            alert('Error: ' + msg + '\nLine: ' + lineNo + '\nFile: ' + url);
+            return false;
+        };
+
+        // --- State ---
+        // Data Structure: { food: [], nonFood: [], savings: [] }
+        let trackerData = { food: [], nonFood: [], savings: [] };
+        let activeTab = localStorage.getItem('activeTab') || 'food'; // 'food' or 'nonFood'
+        let activeView = localStorage.getItem('activeView') || 'expenses'; // 'expenses' or 'savings'
+
+        // Persistent Collapsed State
+        let collapsedDays = new Set();
+        try {
+            const savedCollapsed = localStorage.getItem('collapsedDays');
+            if (savedCollapsed) {
+                collapsedDays = new Set(JSON.parse(savedCollapsed));
+            }
+        } catch (e) { console.error("Collapsed State Parse Error", e); }
+
+        // --- Migration: Check for legacy data ---
+        const legacyData = localStorage.getItem('expenses');
+        const newData = localStorage.getItem('trackerData');
+
+        if (newData) {
+            try {
+                trackerData = JSON.parse(newData);
+            } catch (e) {
+                console.error("Data Parse Error", e);
+                alert("Warning: Saved data was corrupted and could not be loaded.");
+            }
+        } else if (legacyData) {
+            try {
+                // Migrate legacy array to food array
+                trackerData.food = JSON.parse(legacyData);
+                // Ensure IDs
+                trackerData.food = trackerData.food.map(ensureId);
+                localStorage.setItem('trackerData', JSON.stringify(trackerData));
+                localStorage.removeItem('expenses'); // Cleanup
+            } catch (e) { console.error("Legacy Parse Error", e); }
+        }
+
+        // --- Categories Config ---
+        const categories = {
+            food: ['Breakfast', 'Lunch', 'Dinner', 'Snack'],
+            nonFood: ['Transport', 'Shopping', 'Utilities', 'Other']
+        };
+
+        // --- DOM Elements ---
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const pageTitle = document.getElementById('pageTitle');
+        const catContainer = document.getElementById('categoryContainer');
+        const catInput = document.getElementById('category');
+        const listDiv = document.getElementById('list');
+        const listControls = document.getElementById('listControls');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const totalDisplay = document.getElementById('totalDisplay');
+        const form = document.getElementById('expenseForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const editIdInput = document.getElementById('editId');
+        const itemNameInput = document.getElementById('itemName');
+        const amountInput = document.getElementById('amount');
+        const dateInput = document.getElementById('dateInput');
+
+        // --- Savings DOM ---
+        const savingsForm = document.getElementById('savingsForm');
+        const savingsNameInput = document.getElementById('savingsName');
+        const savingsTargetInput = document.getElementById('savingsTarget');
+        const savingsDescriptionInput = document.getElementById('savingsDescription');
+        const savingsDateInput = document.getElementById('savingsDate');
+        const savingsListDiv = document.getElementById('savingsList');
+        const savingsSubmitBtn = document.getElementById('savingsSubmitBtn');
+        const savingsEditIdInput = document.getElementById('savingsEditId');
+
+        // --- Navigation Logic ---
+        window.openNav = function () {
+            document.getElementById("mySidenav").style.width = "250px";
+            document.getElementById("navOverlay").style.display = "block";
+        }
+
+        window.closeNav = function () {
+            document.getElementById("mySidenav").style.width = "0";
+            document.getElementById("navOverlay").style.display = "none";
+        }
+
+        window.showView = function (view) {
+            activeView = view;
+            localStorage.setItem('activeView', view);
+            closeNav();
+
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(view + 'View').classList.add('active');
+
+            const mainTitle = document.getElementById('mainTitle');
+            if (view === 'expenses') {
+                mainTitle.textContent = 'Expenses Tracker';
+                renderList();
+            } else {
+                mainTitle.textContent = 'Savings Tracker';
+                renderSavingsList();
+            }
+        }
+
+        // --- Savings Modal Logic ---
+        window.openSavingsModal = function () {
+            resetSavingsForm();
+            document.getElementById('savingsModal').style.display = 'flex';
+        }
+
+        window.closeSavingsModal = function () {
+            document.getElementById('savingsModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function (event) {
+            const modal = document.getElementById('savingsModal');
+            const detailModal = document.getElementById('savingsDetailModal');
+            const navOverlay = document.getElementById('navOverlay');
+            if (event.target === modal) {
+                closeSavingsModal();
+            }
+            if (event.target === detailModal) {
+                closeSavingsDetail();
+            }
+            if (event.target === navOverlay) {
+                closeNav();
+            }
+        }
+
+        // --- Helpers ---
+        function ensureId(item) {
+            return item;
+        }
+
+        function saveData() {
+            localStorage.setItem('trackerData', JSON.stringify(trackerData));
+        }
+
+        function getActiveList() {
+            return trackerData[activeTab];
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatTime(isoString) {
+            return new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+
+        function getDateKey(isoString) {
+            if (!isoString) return 'Unknown Date';
+            return new Date(isoString).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        // --- UI Logic ---
+        function switchTab(tab) {
+            activeTab = tab;
+            localStorage.setItem('activeTab', tab);
+
+            // Update Tab UI
+            tabBtns.forEach(btn => {
+                if (btn.dataset.tab === tab) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // Update Title
+            pageTitle.textContent = tab === 'food' ? "Daily Food Expenses" : "General Expenses";
+
+            // Render Category Buttons
+            renderCategoryButtons();
+
+            // Render List
+            renderList();
+
+            resetForm();
+        }
+
+        function renderCategoryButtons() {
+            catContainer.innerHTML = '';
+            const cats = categories[activeTab];
+
+            // Only override if current value is not valid for this tab
+            if (!cats.includes(catInput.value)) {
+                catInput.value = cats[0];
+            }
+
+            cats.forEach((cat, index) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                // Active if matches current value
+                btn.className = cat === catInput.value ? 'cat-btn active' : 'cat-btn';
+                btn.textContent = cat;
+                btn.onclick = () => selectCategory(cat, btn);
+                catContainer.appendChild(btn);
+            });
+        }
+
+        function selectCategory(cat, btnElement) {
+            catInput.value = cat;
+            Array.from(catContainer.children).forEach(b => b.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
+            else {
+                // Find button by text if not passed directly
+                Array.from(catContainer.children).forEach(b => {
+                    if (b.textContent === cat) b.classList.add('active');
+                });
+            }
+        }
+
+        function formatCurrency(amount) {
+            return parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function renderList() {
+            const list = getActiveList();
+            listDiv.innerHTML = '';
+            let grandTotal = 0;
+
+            if (list.length === 0) {
+                listControls.style.display = 'none';
+                listDiv.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No entries yet.</div>';
+                totalDisplay.textContent = `Total: ₱${formatCurrency(0)}`;
+                return;
+            }
+
+            listControls.style.display = 'flex';
+            const allChecked = list.every(item => item.checked !== false);
+            selectAllCheckbox.checked = allChecked;
+
+            // Sort by date desc
+            const sorted = [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Grouping
+            const grouped = {};
+            const uniqueKeys = [];
+
+            sorted.forEach(item => {
+                const key = getDateKey(item.date);
+                if (!grouped[key]) {
+                    grouped[key] = [];
+                    uniqueKeys.push(key);
+                }
+                grouped[key].push(item);
+            });
+
+            uniqueKeys.forEach(dateKey => {
+                const items = grouped[dateKey];
+                // Calculate Daily Total (Only Checked Items) for Grand Total
+                const checkedDayTotal = items.reduce((sum, item) => {
+                    const isChecked = item.checked !== false;
+                    return isChecked ? sum + parseFloat(item.amount) : sum;
+                }, 0);
+
+                // Calculate Absolute Total (For Display)
+                const absoluteDayTotal = items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+
+                const header = document.createElement('div');
+                header.className = 'date-header';
+                const isCollapsed = collapsedDays.has(dateKey);
+
+                // Check if all items for this day are checked
+                const allChecked = items.every(item => item.checked !== false);
+
+                header.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="toggle-icon ${isCollapsed ? 'collapsed' : ''}">▾</span>
+                        <input type="checkbox" 
+                            ${allChecked ? 'checked' : ''} 
+                            onchange="event.stopPropagation(); toggleDayCheck('${dateKey}', this.checked)"
+                            onclick="event.stopPropagation()"
+                            style="width: 19px; height: 19px; cursor: pointer;">
+                        <span>${dateKey}</span>
+                    </div>
+                    <span>₱${formatCurrency(absoluteDayTotal)}</span>
+                `;
+                header.onclick = () => toggleDayCollapse(dateKey);
+                listDiv.appendChild(header);
+
+                if (!isCollapsed) {
+                    items.forEach(item => {
+                        const isChecked = item.checked !== false;
+                        const div = document.createElement('div');
+                        div.className = 'expense-item';
+                        div.style.opacity = isChecked ? '1' : '0.6';
+                        div.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" 
+                                    ${isChecked ? 'checked' : ''} 
+                                    onchange="toggleCheck('${item.id}')"
+                                    style="width: 19px; height: 19px; cursor: pointer; margin-right: 5px;">
+                                <div class="item-info">
+                                    <span><span class="tag">${item.category || item.meal_type}</span> ${item.item_name}</span>
+                                    <span class="meta-info">${formatTime(item.date)}</span>
+                                </div>
+                            </div>
+                            <div class="item-left">
+                                <strong>₱${formatCurrency(item.amount)}</strong>
+                                <div class="item-actions">
+                                    <button class="action-btn" onclick="startEdit('${item.id}')">✎</button>
+                                    <button class="action-btn delete-btn" onclick="deleteItem('${item.id}')">×</button>
+                                </div>
+                            </div>
+                        `;
+                        listDiv.appendChild(div);
+                    });
+                }
+                grandTotal += checkedDayTotal;
+            });
+
+            totalDisplay.textContent = `Subtotal: ₱${formatCurrency(grandTotal)}`;
+
+            // Calculate Combined Grand Total (Across all tabs)
+            const globalTotal = ['food', 'nonFood'].reduce((total, tab) => {
+                return total + trackerData[tab].reduce((tabSum, item) => {
+                    return (item.checked !== false) ? tabSum + parseFloat(item.amount) : tabSum;
+                }, 0);
+            }, 0);
+
+            document.getElementById('grandTotalDisplay').textContent = `Grand Total: ₱${formatCurrency(globalTotal)}`;
+        }
+
+        window.toggleCheck = function (id) {
+            const list = getActiveList();
+            const item = list.find(x => x.id === id);
+            if (item) {
+                // Toggle state (default true if undefined)
+                item.checked = !(item.checked !== false);
+                saveData();
+                renderList();
+            }
+        };
+
+        window.toggleDayCollapse = function (dateKey) {
+            if (collapsedDays.has(dateKey)) {
+                collapsedDays.delete(dateKey);
+            } else {
+                collapsedDays.add(dateKey);
+            }
+            // Save state
+            localStorage.setItem('collapsedDays', JSON.stringify([...collapsedDays]));
+            renderList();
+        };
+
+        window.toggleDayCheck = function (dateKey, isChecked) {
+            const list = getActiveList();
+            list.forEach(item => {
+                if (getDateKey(item.date) === dateKey) {
+                    item.checked = isChecked;
+                }
+            });
+            saveData();
+            renderList();
+        };
+
+        window.toggleAllEntries = function (isChecked) {
+            const list = getActiveList();
+            list.forEach(item => {
+                item.checked = isChecked;
+            });
+            saveData();
+            renderList();
+        };
+
+        // --- Actions ---
+        window.startEdit = function (id) {
+            const list = getActiveList();
+            const item = list.find(x => x.id === id);
+            if (item) {
+                editIdInput.value = item.id;
+                itemNameInput.value = item.item_name;
+                amountInput.value = item.amount;
+
+                // Set Date Input for Editing
+                if (item.date) {
+                    const d = new Date(item.date);
+                    // Format to local ISO: YYYY-MM-DDThh:mm
+                    // Simple trick to get local ISO string
+                    const localIso = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                    dateInput.value = localIso;
+                } else {
+                    dateInput.value = '';
+                }
+
+                // Support legacy 'meal_type' or new 'category'
+                const cat = item.category || item.meal_type;
+                selectCategory(cat);
+
+                submitBtn.textContent = 'Update Expense';
+                submitBtn.style.backgroundColor = '#007bff';
+                cancelEditBtn.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        window.deleteItem = function (id) {
+            if (confirm('Delete this item?')) {
+                trackerData[activeTab] = trackerData[activeTab].filter(item => item.id !== id);
+                saveData();
+                renderList();
+                if (editIdInput.value === id) resetForm();
+            }
+        };
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = editIdInput.value;
+            const cat = catInput.value;
+            const name = itemNameInput.value;
+            const amt = parseFloat(amountInput.value);
+            // Use the date from the input or current time if blank
+            const dateVal = dateInput.value ? new Date(dateInput.value).toLocaleString() : new Date().toLocaleString();
+
+            if (name && amt > 0) {
+                const payload = {
+                    date: dateVal,
+                    category: cat,
+                    item_name: name,
+                    amount: amt
+                };
+
+                try {
+                    // This sends the data to your app.py /add route
+                    const response = await fetch('/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        // Success: Keep local backup and update UI
+                        trackerData[activeTab].unshift({ ...payload, id: Date.now().toString(), checked: true });
+                        saveData();
+                        renderList();
+                        resetForm();
+                        alert("Logged to Google Sheets!");
+                    } else {
+                        const errData = await response.json();
+                        alert("Server Error: " + errData.message);
+                    }
+                } catch (err) {
+                    // Fallback: If server is down, save locally only
+                    console.error("Save failed:", err);
+                    trackerData[activeTab].unshift({ ...payload, id: Date.now().toString(), checked: true });
+                    saveData();
+                    renderList();
+                    resetForm();
+                    alert("Saved locally (Server Offline)");
+                }
+            }
+        });
+
+        function resetForm() {
+            const preservedCat = catInput.value;
+            form.reset();
+            editIdInput.value = '';
+            dateInput.value = ''; // Clear date input
+            // Restore category or select first if empty
+            selectCategory(preservedCat || categories[activeTab][0]);
+
+            submitBtn.textContent = 'Add Expense';
+            submitBtn.style.backgroundColor = '#28a745';
+            cancelEditBtn.style.display = 'none';
+        }
+
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // --- Savings Tracker Logic ---
+        function renderSavingsList() {
+            savingsListDiv.innerHTML = '';
+            const savings = trackerData.savings || [];
+
+            if (savings.length === 0) {
+                savingsListDiv.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No savings goals yet.</div>';
+                return;
+            }
+
+            // Sort by date desc
+            const sorted = [...savings].sort((a, b) => new Date(b.targetDate) - new Date(a.targetDate));
+
+            sorted.forEach(item => {
+                const saved = item.savedAmount || 0;
+
+                // Determine if we have a target
+                const hasTarget = item.targetAmount && item.targetAmount > 0;
+                const percent = hasTarget ? Math.min(100, Math.floor((saved / item.targetAmount) * 100)) : 0;
+
+                // Date Display
+                let dateDisplay = '';
+                if (item.targetDate) {
+                    dateDisplay = `<span class="meta-info">Target: ${formatDate(item.targetDate)}</span>`;
+                }
+
+                const div = document.createElement('div');
+                div.className = 'expense-item savings-bar-item';
+                div.style.flexDirection = 'column';
+                div.style.alignItems = 'stretch';
+                div.onclick = () => openSavingsDetail(item.id);
+
+                let rightSideContent = '';
+                if (hasTarget) {
+                    rightSideContent = `
+                        <strong style="font-size: 1.2rem;">₱${formatCurrency(item.targetAmount)}</strong>
+                        <span style="display: block; font-size: 0.8rem; color: #888;">${percent}% Saved</span>
+                     `;
+                } else {
+                    rightSideContent = `
+                        <strong style="font-size: 1.2rem; color: #28a745;">₱${formatCurrency(saved)}</strong>
+                        <span style="display: block; font-size: 0.8rem; color: #888;">Saved</span>
+                     `;
+                }
+
+                let progressBarHtml = '';
+                if (hasTarget) {
+                    progressBarHtml = `
+                        <div style="background: #eee; height: 22.5px; border-radius: 11.25px; overflow: hidden;">
+                            <div style="background: #28a745; width: ${percent}%; height: 100%; transition: width 0.3s;"></div>
+                        </div>
+                    `;
+                }
+
+                div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: ${hasTarget ? '8px' : '0'};">
+                            <div class="item-info">
+                                <strong style="font-size: 1.1rem; color: #333;">${item.name}</strong>
+                                ${dateDisplay}
+                            </div>
+                            <div class="item-left" style="text-align: right;">
+                                ${rightSideContent}
+                            </div>
+                        </div>
+                        ${progressBarHtml}
+                    `;
+                savingsListDiv.appendChild(div);
+            });
+        }
+
+        window.openSavingsDetail = function (id) {
+            const item = trackerData.savings.find(x => x.id === id);
+            if (item) {
+                document.getElementById('detailGoalName').textContent = item.name;
+                // Conditional Display for Details
+                const amtContainer = document.getElementById('detailGoalAmountContainer');
+                const dateContainer = document.getElementById('detailGoalDateContainer');
+
+                if (item.targetAmount && item.targetAmount > 0) {
+                    amtContainer.style.display = 'block';
+                    document.getElementById('detailGoalAmount').textContent = '₱' + formatCurrency(item.targetAmount);
+                } else {
+                    amtContainer.style.display = 'none';
+                }
+
+                if (item.targetDate) {
+                    dateContainer.style.display = 'block';
+                    document.getElementById('detailGoalDate').textContent = formatDate(item.targetDate);
+                } else {
+                    dateContainer.style.display = 'none';
+                }
+                document.getElementById('detailCurrentSaved').textContent = '₱' + formatCurrency(item.savedAmount || 0);
+
+                const descTextarea = document.getElementById('detailDescription');
+                descTextarea.value = item.description || '';
+                descTextarea.onblur = () => updateSavingsDescription(id, descTextarea.value);
+
+                const savedInput = document.getElementById('detailSavedInput');
+                savedInput.value = ''; // Always clear for adding
+
+                // Render History
+                const historyList = document.getElementById('detailHistoryList');
+                historyList.innerHTML = '';
+                if (item.history && item.history.length > 0) {
+                    // Sort history by date descending
+                    const sortedHistory = [...item.history].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    sortedHistory.forEach(entry => {
+                        const div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.justifyContent = 'space-between';
+                        div.style.padding = '8px';
+                        div.style.borderBottom = '1px solid #eee';
+                        div.style.fontSize = '0.9rem';
+                        div.innerHTML = `
+                            <span style="color: #444;">${formatDate(entry.date)} <small style="color: #888;">${formatTime(entry.date)}</small></span>
+                            <strong style="color: #28a745;">+₱${formatCurrency(entry.amount)}</strong>
+                        `;
+                        historyList.appendChild(div);
+                    });
+                } else {
+                    historyList.innerHTML = '<div style="text-align: center; color: #aaa; padding: 20px; font-size: 0.85rem;">No history yet.</div>';
+                }
+
+                document.getElementById('detailSaveProgressBtn').onclick = () => {
+                    updateSavingsProgress(id, savedInput.value);
+                };
+
+                document.getElementById('detailEditBtn').onclick = () => {
+                    closeSavingsDetail();
+                    startSavingsEdit(id);
+                };
+                document.getElementById('detailDeleteBtn').onclick = () => {
+                    closeSavingsDetail();
+                    deleteSavingsItem(id);
+                };
+
+                document.getElementById('savingsDetailModal').style.display = 'flex';
+            }
+        };
+
+        window.updateSavingsProgress = function (id, value) {
+            const amountToAdd = parseFloat(value) || 0;
+            if (amountToAdd <= 0) return;
+
+            const item = trackerData.savings.find(x => x.id === id);
+            if (item) {
+                if (!item.history) item.history = [];
+
+                // Add to history
+                item.history.push({
+                    amount: amountToAdd,
+                    date: new Date().toISOString()
+                });
+
+                // Update total
+                item.savedAmount = (item.savedAmount || 0) + amountToAdd;
+
+                saveData();
+                renderSavingsList();
+                openSavingsDetail(id); // Refresh the detail view to show new history
+
+                // Optional message
+                // console.log(`Added ₱${amountToAdd} to ${item.name}`);
+            }
+        };
+
+        window.updateSavingsDescription = function (id, text) {
+            const item = trackerData.savings.find(x => x.id === id);
+            if (item) {
+                item.description = text;
+                saveData();
+            }
+        };
+
+        window.toggleSavingsSettings = function () {
+            const menu = document.getElementById('detailSettingsMenu');
+            menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+        };
+
+        window.closeSavingsDetail = function () {
+            document.getElementById('savingsDetailModal').style.display = 'none';
+            document.getElementById('detailSettingsMenu').style.display = 'none';
+        };
+
+        savingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = savingsEditIdInput.value;
+            const name = savingsNameInput.value;
+            const targetAmount = parseFloat(savingsTargetInput.value);
+            const description = savingsDescriptionInput.value;
+            const targetDate = savingsDateInput.value;
+
+            // Relaxed validation: only name is required
+            if (name) {
+                if (id) {
+                    const item = trackerData.savings.find(x => x.id === id);
+                    if (item) {
+                        item.name = name;
+                        item.targetAmount = targetAmount || 0; // 0 implies no target
+                        item.description = description;
+                        item.targetDate = targetDate || null; // null implies no date
+                    }
+                } else {
+                    if (!trackerData.savings) trackerData.savings = [];
+                    trackerData.savings.unshift({
+                        id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+                        name: name,
+                        targetAmount: targetAmount || 0,
+                        description: description,
+                        targetDate: targetDate || null
+                    });
+                }
+                saveData();
+                renderSavingsList();
+                closeSavingsModal();
+            }
+        });
+
+        function resetSavingsForm() {
+            savingsForm.reset();
+            savingsEditIdInput.value = '';
+            document.getElementById('savingsModalTitle').textContent = 'New Savings Goal';
+            savingsSubmitBtn.textContent = 'Save Goal';
+            savingsSubmitBtn.style.backgroundColor = '#28a745';
+        }
+
+        window.startSavingsEdit = function (id) {
+            const item = trackerData.savings.find(x => x.id === id);
+            if (item) {
+                savingsEditIdInput.value = item.id;
+                savingsNameInput.value = item.name;
+                savingsTargetInput.value = item.targetAmount;
+                savingsDescriptionInput.value = item.description || '';
+                savingsDateInput.value = item.targetDate;
+
+                document.getElementById('savingsModalTitle').textContent = 'Edit Savings Goal';
+                savingsSubmitBtn.textContent = 'Update Goal';
+                savingsSubmitBtn.style.backgroundColor = '#007bff';
+                document.getElementById('savingsModal').style.display = 'flex';
+            }
+        };
+
+        window.deleteSavingsItem = function (id) {
+            if (confirm('Delete this savings goal?')) {
+                trackerData.savings = trackerData.savings.filter(item => item.id !== id);
+                saveData();
+                renderSavingsList();
+                if (savingsEditIdInput.value === id) resetSavingsForm();
+            }
+        };
+
+
+        // --- Global Features ---
+        // Tab Clicks
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // Clear All (Active Tab Only)
+        document.getElementById('clearBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (confirm(`Clear all ${activeTab === 'food' ? 'Food' : 'General'} expenses?`)) {
+                trackerData[activeTab] = [];
+                saveData();
+                renderList();
+            }
+        });
+
+        // Helper to escape CSV fields
+        function escapeCsv(field) {
+            if (field === null || field === undefined) return '';
+            const stringField = String(field);
+            if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                return `"${stringField.replace(/"/g, '""')}"`;
+            }
+            return stringField;
+        }
+
+        // Helper to parse CSV line
+        function parseCsvLine(line) {
+            const result = [];
+            let start = 0;
+            let insideQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                if (line[i] === '"') {
+                    insideQuotes = !insideQuotes;
+                } else if (line[i] === ',' && !insideQuotes) {
+                    let field = line.substring(start, i);
+                    if (field.startsWith('"') && field.endsWith('"')) {
+                        field = field.substring(1, field.length - 1).replace(/""/g, '"');
+                    }
+                    result.push(field);
+                    start = i + 1;
+                }
+            }
+            // Push last field
+            let field = line.substring(start);
+            if (field.startsWith('"') && field.endsWith('"')) {
+                field = field.substring(1, field.length - 1).replace(/""/g, '"');
+            }
+            result.push(field);
+            return result;
+        }
+
+        // Save Function (CSV)
+        document.getElementById('saveBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            // Added 'Included' column and savings-specific columns
+            const headers = ['Date', 'Type', 'Category', 'Item Name', 'Amount', 'ID', 'Included', 'Description', 'SavedAmount', 'History'];
+            const rows = [headers.join(',')];
+
+            // Process Food
+            trackerData.food.forEach(item => {
+                const row = [
+                    escapeCsv(item.date),
+                    'Food',
+                    escapeCsv(item.category || item.meal_type),
+                    escapeCsv(item.item_name),
+                    item.amount,
+                    item.id,
+                    item.checked !== false ? 'true' : 'false',
+                    '', // Description (not used for expenses)
+                    '', // SavedAmount (not used for expenses)
+                    ''  // History (not used for expenses)
+                ];
+                rows.push(row.join(','));
+            });
+
+            // Process Non-Food
+            trackerData.nonFood.forEach(item => {
+                const row = [
+                    escapeCsv(item.date),
+                    'General',
+                    escapeCsv(item.category),
+                    escapeCsv(item.item_name),
+                    item.amount,
+                    item.id,
+                    item.checked !== false ? 'true' : 'false',
+                    '', // Description (not used for expenses)
+                    '', // SavedAmount (not used for expenses)
+                    ''  // History (not used for expenses)
+                ];
+                rows.push(row.join(','));
+            });
+
+            // Process Savings
+            if (trackerData.savings) {
+                trackerData.savings.forEach(item => {
+                    const row = [
+                        escapeCsv(item.targetDate),
+                        'Savings',
+                        'Goal',
+                        escapeCsv(item.name),
+                        item.targetAmount,
+                        item.id,
+                        'true',
+                        escapeCsv(item.description || ''),
+                        item.savedAmount || 0,
+                        escapeCsv(JSON.stringify(item.history || []))
+                    ];
+                    rows.push(row.join(','));
+                });
+            }
+
+            const csvContent = rows.join('\n');
+
+            try {
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: 'tracker_data.csv',
+                        types: [{ description: 'CSV Data', accept: { 'text/csv': ['.csv'] } }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(csvContent);
+                    await writable.close();
+                    alert('All data saved to CSV!');
+                } else {
+                    downloadFile(csvContent, 'tracker_data.csv', 'text/csv');
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') downloadFile(csvContent, 'tracker_data.csv', 'text/csv');
+            }
+        });
+
+        function downloadFile(content, fileName, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Load Function (CSV)
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const text = ev.target.result;
+                    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+                    if (lines.length < 2) {
+                        alert('File seems empty or invalid.');
+                        return;
+                    }
+
+                    // Check Header
+                    const header = lines[0].split(',');
+
+                    if (confirm('Replace ALL data with this CSV file?')) {
+                        const newFood = [];
+                        const newNonFood = [];
+                        const newSavings = [];
+
+                        // Start from 1 to skip header
+                        for (let i = 1; i < lines.length; i++) {
+                            const cols = parseCsvLine(lines[i]);
+                            // Expected indices: 0:Date, 1:Type, 2:Cat, 3:Name, 4:Amt, 5:ID, 6:Included
+                            if (cols.length < 5) continue; // Skip malformed
+
+                            const item = {
+                                date: cols[0],
+                                category: cols[2],
+                                item_name: cols[3],
+                                amount: parseFloat(cols[4]),
+                                id: cols[5] || Date.now().toString(36) + Math.random().toString(36).substr(2),
+                                // Default true if col 6 missing (legacy CSV) or 'true'
+                                checked: (cols[6] === 'false') ? false : true
+                            };
+
+                            if (cols[1] === 'Food') {
+                                newFood.push(item);
+                            } else if (cols[1] === 'NonFood' || cols[1] === 'General') {
+                                newNonFood.push(item);
+                            } else if (cols[1] === 'Savings') {
+                                // For savings, parse additional fields
+                                const savingsItem = {
+                                    id: item.id,
+                                    name: item.item_name,
+                                    targetAmount: item.amount,
+                                    targetDate: item.date,
+                                    description: cols[7] || '', // Column 7: Description
+                                    savedAmount: parseFloat(cols[8]) || 0, // Column 8: SavedAmount
+                                    history: [] // Column 9: History (JSON)
+                                };
+
+                                // Parse history if present
+                                if (cols[9]) {
+                                    try {
+                                        savingsItem.history = JSON.parse(cols[9]);
+                                    } catch (e) {
+                                        console.warn('Failed to parse history for savings item:', e);
+                                        savingsItem.history = [];
+                                    }
+                                }
+
+                                newSavings.push(savingsItem);
+                            } else {
+                                newFood.push(item);
+                            }
+                        }
+
+                        trackerData = { food: newFood, nonFood: newNonFood, savings: newSavings };
+                        saveData();
+                        renderList();
+                        renderSavingsList();
+                        alert('Data loaded successfully from CSV!');
+                    }
+                } catch (err) { alert('Error: ' + err.message); }
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        });
+
+        // Download CSV (Active Tab) - REMOVED since Save is now CSV
+        document.getElementById('downloadBtn').style.display = 'none';
+
+        // --- UI Modal ---
+        window.showInstallInfo = function () {
+            document.getElementById('installModal').style.display = 'flex';
+        };
+        window.hideInstallInfo = function () {
+            document.getElementById('installModal').style.display = 'none';
+        };
+
+        window.resetCache = function () {
+            if (confirm('This will refresh the app and clear any temporary system errors. Continue?')) {
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        for (let registration of registrations) { registration.unregister(); }
+                        caches.keys().then(names => {
+                            for (let name of names) { caches.delete(name); }
+                            window.location.reload(true);
+                        });
+                    });
+                } else {
+                    window.location.reload(true);
+                }
+            }
+        };
+
+        // --- More Options Toggle ---
+        window.toggleMoreOptions = function () {
+            const group = document.getElementById('moreOptionsGroup');
+            const btn = document.getElementById('moreOptionsBtn');
+            if (group.style.display === 'none') {
+                group.style.display = 'flex';
+                btn.textContent = 'Hide Options';
+            } else {
+                group.style.display = 'none';
+                btn.textContent = 'Show More...';
+            }
+        };
+
+        // Init
+        // Initialize UI with saved view and tab
+        showView(activeView);
+        switchTab(activeTab);
+
+        // --- Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.log('Service Worker registration failed', err));
+            });
+        }
+
+    </script>
+</body>
+
+</html>

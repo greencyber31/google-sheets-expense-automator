@@ -1,0 +1,22 @@
+[
+  {
+    "meal_type": "Dinner",
+    "item_name": "pork",
+    "amount": 555,
+    "date": "2026-01-13T17:56:30.091Z",
+    "id": "1768327206852b3ebbb7924cda"
+  },
+  {
+    "meal_type": "Breakfast",
+    "item_name": "egg",
+    "amount": 223,
+    "date": "2026-01-13T17:52:48.181Z",
+    "id": "17683272068522a84a022749e7"
+  },
+  {
+    "meal_type": "Breakfast",
+    "item_name": "egg",
+    "amount": 123,
+    "id": "17683272068525799539dec08f"
+  }
+]
